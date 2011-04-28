@@ -16,6 +16,7 @@ gopt.o: gopt.c
 sender: sender.o gopt.o
 	$(CC) $(LDFLAGS) sender.o gopt.o -o sender $(LDLIBS)
 
+receiver:
 
 clean:
 	rm *.o sender receiver	
