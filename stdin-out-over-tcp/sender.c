@@ -6,19 +6,19 @@
 #include <unistd.h>
 #include "gopt.h"
 
-#define BUFLEN 2
+#define BUFLEN 1024
 
 int main(int argc, const char **argv)
 {
 	int i=0; /* holds the return (read bytes) from fread() */
 	int nc=0; /* Sum of read bytes. */
 	int loopc=0; /* number of loop iterations */
-	char inbuf[BUFLEN+1]; /* Input-buffer */
+	char inbuf[BUFLEN]; /* Input-buffer */
 	const char *in_filename =0; 
 	const char *str_address, *str_port, *str_address_family;
 	char str_ip4_addr[INET_ADDRSTRLEN];
 	FILE *fin;
-	int fd_out;
+	int fd_out =0;
 	int af=0;
 	struct sockaddr *sa;
 	struct sockaddr_in ip4_sa;
@@ -73,22 +73,26 @@ int main(int argc, const char **argv)
 	
 	
 	if( 0 == strcmp("AF_INET", str_address_family) ) {
-		ip4_sa.sin_family = af = AF_INET;
 		memset(&ip4_sa, 0, sizeof(ip4_sa));
 		sa = (struct sockaddr *) &ip4_sa;
+
+		ip4_sa.sin_family = af = AF_INET;
+
 		printf("str_address: %s\n", str_address);
+
 		inet_pton(af, str_address, &(ip4_sa.sin_addr));
-		inet_ntop(af, &(ip4_sa.sin_addr), str_ip4_addr, INET_ADDRSTRLEN);
-		
 		ip4_sa.sin_port = htons(atoi(str_port));
-		printf("Connecting to %s : %s\n", str_ip4_addr, str_port);
+
+		inet_ntop(af, &(ip4_sa.sin_addr), str_ip4_addr, INET_ADDRSTRLEN);
+		printf("Connecting to %s : %d\n", str_ip4_addr, ntohs(ip4_sa.sin_port));
+		fprintf(stderr, "fd:%d\n", fd_out);
 		if( 0 > (fd_out = socket(AF_INET, SOCK_STREAM, 0)) ) {
 			perror("ERROR opening socket\n");
 			exit( EXIT_FAILURE );
 		}
-		
+		fprintf(stderr, "fd:%d\n", fd_out);
 		printf("Socket opened, connecting to %s : %s\n", str_address, str_port);
-		if( 0 > connect(fd_out, (struct sockaddr *)&ip4_sa, sizeof(ip4_sa) ) ) {
+		if( 0 != connect(fd_out, &ip4_sa, sizeof(ip4_sa) ) ) {
 			perror("ERROR connecting socket\n");
 			exit( EXIT_FAILURE );
 		}
@@ -105,13 +109,17 @@ int main(int argc, const char **argv)
 
 	i = fread(inbuf, sizeof(char), BUFLEN, fin);
 	do {
+		fprintf(stderr, "i: %d\n", i);
+
 		/* Output to stderr (or log) */
 		loopc +=1;
 		fprintf(stderr, "loopc: %d\n", loopc);
 		nc += i;
 		fprintf(stderr, "Read characters: i:%d, %s\n", i, inbuf);
-		/* Output to stdout */
-		write(fd_out, inbuf, i);
+		/* Output to net */
+		write(fd_out, inbuf, i); 
+		fprintf(stderr, "Wrote to fd_out\n");
+		fflush(stderr);
 	}
 	while (BUFLEN == (i = fread(inbuf, sizeof(char), BUFLEN, fin)  ) ) ;
 
